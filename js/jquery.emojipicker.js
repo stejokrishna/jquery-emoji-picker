@@ -75,7 +75,7 @@
 
   $.extend(EmojiPicker.prototype, {
 
-    init: function() {
+      init: function () {
       this.active = false;
       this.addPickerIcon();
       this.createPicker();
@@ -136,7 +136,10 @@
       this.$picker.unbind('mouseout');
       this.$picker.unbind('click');
       this.$picker.remove();
-
+      //below code is to clear emoji icon and temporary div wrapped around textbox
+      //without below code once emoji picker is detroyed and recreated for textbox because of old emoji picker icon is still exisitng
+      $('.emojiPickerIcon', this.$wrapper).remove();
+      this.$el.unwrap();
       $.removeData(this.$el.get(0), 'emojiPicker');
 
       return this;
@@ -152,18 +155,18 @@
       }
 
       // Click event for emoji
-      this.$picker.on('click', 'em', $.proxy(this.emojiClicked, this));
+      this.$picker.on('click', 'em .emoji', $.proxy(this.emojiClicked, this));
 
       // Hover event for emoji
-      this.$picker.on('mouseover', 'em', $.proxy(this.emojiMouseover, this) );
-      this.$picker.on('mouseout',  'em', $.proxy(this.emojiMouseout, this) );
+      this.$picker.on('mouseover', 'em .emoji', $.proxy(this.emojiMouseover, this));
+      this.$picker.on('mouseout', 'em .emoji', $.proxy(this.emojiMouseout, this));
 
       // Click event for active tab
       this.$picker.find('nav .tab')
         .click( $.proxy(this.emojiCategoryClicked, this) )
         .mouseover( $.proxy(this.emojiTabMouseover, this) )
         .mouseout( $.proxy(this.emojiMouseout, this) );
-
+      
       // Scroll event for active tab
       this.$picker.find('.sections')
         .scroll( $.proxy(this.emojiScroll, this) );
@@ -244,8 +247,11 @@
      *  EVENTS  *
      ************/
 
-    iconClicked : function() {
-      if ( this.$picker.is(':hidden') ) {
+    iconClicked: function () {
+        if (this.$picker.is(':hidden')) {
+        //reset active tab to recent
+        $('nav div', this.$picker).removeClass('active');
+        $('nav div[data-tab=recent]', this.$picker).addClass('active');
         this.show();
         if( this.$picker.find('.search input').length > 0 ) {
           this.$picker.find('.search input').focus();
@@ -261,7 +267,7 @@
 
       insertAtCaret(this.element, emojiUnicode);
       addToLocalStorage(emojiShortcode);
-      updateRecentlyUsed(emojiShortcode);
+      updateRecentlyUsed(emojiShortcode, this.$picker);
 
       // For anyone who is relying on the keyup event
       $(this.element).trigger("keyup");
@@ -284,7 +290,7 @@
       $(e.target).parents('.emojiPicker').find('.shortcode .random').show();
     },
 
-    emojiCategoryClicked: function(e) {
+    emojiCategoryClicked: function (e) {
       var section = '';
 
       // Update tab
@@ -341,7 +347,7 @@
       $shortcode.find('.info').show().html(categoryHtml);
     },
 
-    emojiScroll: function(e) {
+    emojiScroll: function (e) {
       var sections = $('section');
       $.each(sections, function(key, value) {
         var section = sections[key];
@@ -410,11 +416,13 @@
       this.each(function() {
         var plugin = $.data( this, pluginName );
         switch(options) {
-          case 'toggle':
-            plugin.iconClicked();
+            case 'toggle':
+                if (plugin)
+                    plugin.iconClicked();
             break;
-          case 'destroy':
-            plugin.destroyPicker();
+            case 'destroy':
+                if (plugin)
+                    plugin.destroyPicker();
             break;
         }
       });
@@ -584,11 +592,13 @@
 
     localStorage.emojis = JSON.stringify(recentlyUsedEmojis);
   }
-
-  function updateRecentlyUsed(emoji) {
+    
+  function updateRecentlyUsed(emoji,element) {
     var recentlyUsedEmojis = JSON.parse(localStorage.emojis);
     var emojis = [];
-    var recent = $('section.recent');
+    //minor issue(as this is not a major issue for my project i am skipping this fix for now): because of adding context for element selector only current emoji picker recent will be updated, 
+    //this will be issue when multiple emoji picker is exisitng in same page, recent emojis section will only get updated on selection of emoji in picker
+    var recent = $('section.recent', element);
 
     for (var i = recentlyUsedEmojis.length-1; i >= 0; i--) {
       emojis.push('<em><span class="emoji emoji-' + recentlyUsedEmojis[i] + '"></span></em>');
@@ -596,19 +606,19 @@
 
     // Fix height as emojis are added
     var prevHeight = recent.outerHeight();
-    $('section.recent .wrap').html(emojis.join(''));
-    var currentScrollTop = $('.sections').scrollTop();
+    $('section.recent .wrap', element).html(emojis.join(''));
+    var currentScrollTop = $('.sections', element).scrollTop();
     var newHeight = recent.outerHeight();
     var newScrollToHeight = 0;
 
-    if (!$('section.recent').is(':visible')) {
+    if (!$('section.recent', element).is(':visible')) {
       recent.show();
       newScrollToHeight = newHeight;
     } else if (prevHeight != newHeight) {
       newScrollToHeight = newHeight - prevHeight;
     }
 
-    $('.sections').animate({
+    $('.sections', element).animate({
       scrollTop: currentScrollTop + newScrollToHeight
     }, 0);
   }
